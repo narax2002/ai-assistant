@@ -11,9 +11,14 @@ class Settings:
     ollama_base_url: str
     ollama_api_key: str
     ollama_model: str
+    ollama_timeout_seconds: int
     system_prompt: str
     enable_proofread: bool
+    enable_google_calendar: bool
     max_reply_chars: int
+    google_calendar_credentials_path: str
+    google_calendar_token_path: str
+    google_calendar_id: str
 
 
 def load_settings() -> Settings:
@@ -25,13 +30,24 @@ def load_settings() -> Settings:
         llm_provider=os.getenv("LLM_PROVIDER", "ollama").lower(),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
         ollama_api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-        ollama_model=os.getenv("OLLAMA_MODEL", "llama3.2"),
+        ollama_model=os.getenv("OLLAMA_MODEL", "qwen2.5:7b"),
+        ollama_timeout_seconds=_int_env("OLLAMA_TIMEOUT_SECONDS", 60, minimum=1),
         system_prompt=os.getenv(
             "SYSTEM_PROMPT",
             "You are a practical personal AI assistant. Respond clearly and concisely.",
         ),
         enable_proofread=_bool_env("ENABLE_PROOFREAD", True),
-        max_reply_chars=_int_env("MAX_REPLY_CHARS", 1900),
+        enable_google_calendar=_bool_env("ENABLE_GOOGLE_CALENDAR", False),
+        max_reply_chars=_int_env("MAX_REPLY_CHARS", 1900, minimum=200),
+        google_calendar_credentials_path=os.getenv(
+            "GOOGLE_CALENDAR_CREDENTIALS_PATH",
+            "data/credentials.json",
+        ),
+        google_calendar_token_path=os.getenv(
+            "GOOGLE_CALENDAR_TOKEN_PATH",
+            "data/token.json",
+        ),
+        google_calendar_id=os.getenv("GOOGLE_CALENDAR_ID", "primary"),
     )
 
 
@@ -55,7 +71,7 @@ def _bool_env(name: str, default: bool) -> bool:
     raise RuntimeError(f"{name} must be true/false")
 
 
-def _int_env(name: str, default: int) -> int:
+def _int_env(name: str, default: int, *, minimum: int | None = None) -> int:
     value = os.getenv(name)
     if value is None:
         return default
@@ -65,6 +81,6 @@ def _int_env(name: str, default: int) -> int:
     except ValueError as exc:
         raise RuntimeError(f"{name} must be an integer") from exc
 
-    if parsed < 200:
-        raise RuntimeError(f"{name} must be at least 200")
+    if minimum is not None and parsed < minimum:
+        raise RuntimeError(f"{name} must be at least {minimum}")
     return parsed
