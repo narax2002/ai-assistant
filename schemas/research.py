@@ -21,12 +21,23 @@ class ResearchRequest:
 
 
 @dataclass(frozen=True)
+class AgentResult:
+    agent_name: str
+    output: str
+    elapsed_seconds: float
+    success: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class ResearchResponse:
     request_id: str
     summary: str
     comparison: str
     next_actions: str
     sources: str
+    agent_results: list[AgentResult] = field(default_factory=list)
+    total_elapsed_seconds: float = 0.0
 
     def format_discord(self) -> str:
         return (

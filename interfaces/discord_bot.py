@@ -25,10 +25,11 @@ def create_research_bot(settings: Settings) -> discord.Client:
 
     provider = get_llm_provider(settings)
 
+    timeout = settings.ollama_timeout_seconds
     supervisor = Supervisor(
-        research_agent=ResearchAgent(provider),
-        analyst_agent=AnalystAgent(provider),
-        writer_agent=WriterAgent(provider),
+        research_agent=ResearchAgent(provider, timeout_seconds=timeout),
+        analyst_agent=AnalystAgent(provider, timeout_seconds=timeout),
+        writer_agent=WriterAgent(provider, timeout_seconds=timeout),
     )
 
     dev_guild = _dev_guild(settings)
@@ -69,6 +70,7 @@ def create_research_bot(settings: Settings) -> discord.Client:
             return
 
         text = response.format_discord()
+        text += f"\n\n_처리 시간: {response.total_elapsed_seconds}s_"
 
         for chunk in chunk_text(text, settings.max_reply_chars):
             await interaction.followup.send(chunk)

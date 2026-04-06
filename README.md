@@ -48,7 +48,7 @@ pip install -r requirements.txt
 cp .env.example .env
 mkdir -p data
 ollama serve
-ollama pull qwen2.5:7b
+ollama pull gemma3:4b
 python app.py
 ```
 
@@ -104,7 +104,7 @@ Update `.env` before starting the bot:
 DISCORD_BOT_TOKEN=your_real_discord_bot_token
 OLLAMA_BASE_URL=http://localhost:11434/v1
 OLLAMA_API_KEY=ollama
-OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_MODEL=gemma3:4b
 OLLAMA_TIMEOUT_SECONDS=60
 ENABLE_PROOFREAD=true
 ENABLE_GOOGLE_CALENDAR=false

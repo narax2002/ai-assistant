@@ -35,7 +35,7 @@ def test_load_settings_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = load_settings()
 
     assert settings.llm_provider == "ollama"
-    assert settings.ollama_model == "qwen2.5:7b"
+    assert settings.ollama_model == "gemma3:4b"
     assert settings.ollama_timeout_seconds == 60
     assert settings.enable_google_calendar is False
     assert settings.max_reply_chars == 1900

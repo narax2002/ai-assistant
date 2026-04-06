@@ -13,7 +13,7 @@ def _settings(**overrides: object) -> Settings:
         "llm_provider": "ollama",
         "ollama_base_url": "http://localhost:11434/v1",
         "ollama_api_key": "ollama",
-        "ollama_model": "qwen2.5:7b",
+        "ollama_model": "gemma3:4b",
         "ollama_timeout_seconds": 60,
         "system_prompt": "test prompt",
         "enable_proofread": True,

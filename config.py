@@ -31,7 +31,7 @@ def load_settings() -> Settings:
         llm_provider=os.getenv("LLM_PROVIDER", "ollama").lower(),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
         ollama_api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-        ollama_model=os.getenv("OLLAMA_MODEL", "qwen2.5:7b"),
+        ollama_model=os.getenv("OLLAMA_MODEL", "gemma3:4b"),
         ollama_timeout_seconds=_int_env("OLLAMA_TIMEOUT_SECONDS", 60, minimum=1),
         system_prompt=os.getenv(
             "SYSTEM_PROMPT",

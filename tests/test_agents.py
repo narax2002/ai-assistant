@@ -44,3 +44,8 @@ def test_each_agent_has_system_prompt():
     assert ResearchAgent(p).system_prompt
     assert AnalystAgent(p).system_prompt
     assert WriterAgent(p).system_prompt
+
+
+def test_agent_accepts_timeout():
+    agent = ResearchAgent(FakeProvider(), timeout_seconds=30)
+    assert agent.timeout_seconds == 30

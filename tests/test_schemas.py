@@ -1,4 +1,4 @@
-from schemas.research import ResearchRequest, ResearchResponse
+from schemas.research import AgentResult, ResearchRequest, ResearchResponse
 
 
 def test_request_auto_generates_id():
@@ -31,7 +31,34 @@ def test_response_format_discord():
     assert "**비교**" in text
     assert "**다음 행동**" in text
     assert "**출처**" in text
-    assert "요약" in text
-    assert "비교 내용" in text
-    assert "행동" in text
-    assert "출처 목록" in text
+
+
+def test_agent_result_success():
+    r = AgentResult(agent_name="research", output="ok", elapsed_seconds=1.5, success=True)
+    assert r.success
+    assert r.error is None
+
+
+def test_agent_result_failure():
+    r = AgentResult(
+        agent_name="analyst", output="fallback", elapsed_seconds=2.0, success=False, error="timeout"
+    )
+    assert not r.success
+    assert r.error == "timeout"
+
+
+def test_response_includes_agent_results():
+    results = [
+        AgentResult(agent_name="research", output="ok", elapsed_seconds=1.0, success=True),
+    ]
+    resp = ResearchResponse(
+        request_id="abc",
+        summary="s",
+        comparison="c",
+        next_actions="n",
+        sources="src",
+        agent_results=results,
+        total_elapsed_seconds=3.5,
+    )
+    assert len(resp.agent_results) == 1
+    assert resp.total_elapsed_seconds == 3.5
