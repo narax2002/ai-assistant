@@ -19,6 +19,7 @@ class Settings:
     google_calendar_credentials_path: str
     google_calendar_token_path: str
     google_calendar_id: str
+    discord_dev_guild_id: str
 
 
 def load_settings() -> Settings:
@@ -48,6 +49,7 @@ def load_settings() -> Settings:
             "data/token.json",
         ),
         google_calendar_id=os.getenv("GOOGLE_CALENDAR_ID", "primary"),
+        discord_dev_guild_id=os.getenv("DISCORD_DEV_GUILD_ID", ""),
     )
 
 

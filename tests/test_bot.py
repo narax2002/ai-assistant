@@ -27,6 +27,7 @@ def _settings(**overrides: object) -> Settings:
         "google_calendar_credentials_path": "data/credentials.json",
         "google_calendar_token_path": "data/token.json",
         "google_calendar_id": "primary",
+        "discord_dev_guild_id": "",
     }
     data.update(overrides)
     return Settings(**data)
