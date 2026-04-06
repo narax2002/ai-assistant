@@ -11,5 +11,5 @@ class LLMTimeoutError(LLMError):
 
 class BaseLLMProvider(ABC):
     @abstractmethod
-    def chat(self, user_message: str) -> str:
+    def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
         """Return a response for the supplied user message."""

@@ -24,16 +24,18 @@ class OllamaProvider(BaseLLMProvider):
         self.system_prompt = settings.system_prompt
         self.enable_proofread = settings.enable_proofread
 
-    def chat(self, user_message: str) -> str:
+    def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
+        prompt = system_prompt if system_prompt is not None else self.system_prompt
+
         content = self._complete(
             [
-                {"role": "system", "content": self.system_prompt},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": user_message},
             ],
             temperature=0.1,
         )
 
-        if not self.enable_proofread:
+        if system_prompt is not None or not self.enable_proofread:
             return content
 
         corrected = self._complete(
