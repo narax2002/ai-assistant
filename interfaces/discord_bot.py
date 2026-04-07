@@ -30,6 +30,7 @@ def create_research_bot(settings: Settings) -> discord.Client:
         research_agent=ResearchAgent(provider, timeout_seconds=timeout),
         analyst_agent=AnalystAgent(provider, timeout_seconds=timeout),
         writer_agent=WriterAgent(provider, timeout_seconds=timeout),
+        provider=provider,
     )
 
     dev_guild = _dev_guild(settings)
@@ -70,7 +71,11 @@ def create_research_bot(settings: Settings) -> discord.Client:
             return
 
         text = response.format_discord()
-        text += f"\n\n_처리 시간: {response.total_elapsed_seconds}s_"
+        total_tokens = sum(r.prompt_tokens + r.completion_tokens for r in response.agent_results)
+        stats = f"처리 시간: {response.total_elapsed_seconds}s"
+        if total_tokens:
+            stats += f" | 토큰: {total_tokens}"
+        text += f"\n\n_{stats}_"
 
         for chunk in chunk_text(text, settings.max_reply_chars):
             await interaction.followup.send(chunk)

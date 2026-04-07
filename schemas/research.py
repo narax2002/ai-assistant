@@ -27,6 +27,8 @@ class AgentResult:
     elapsed_seconds: float
     success: bool
     error: str | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,7 @@ from unittest.mock import patch
 from agents.analyst_agent import AnalystAgent
 from agents.research_agent import ResearchAgent
 from agents.writer_agent import WriterAgent
-from llm.base import BaseLLMProvider, LLMError
+from llm.base import BaseLLMProvider, ChatUsage, LLMConnectionError, LLMError
 from orchestrator.supervisor import Supervisor
 from schemas.research import ResearchRequest
 from sources.web_search import SearchResult
@@ -12,6 +12,7 @@ from sources.web_search import SearchResult
 
 class FakeProvider(BaseLLMProvider):
     def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
+        self.last_usage = ChatUsage(prompt_tokens=10, completion_tokens=5)
         return f"[fake] {user_message}"
 
 
@@ -20,12 +21,18 @@ class FailingProvider(BaseLLMProvider):
         raise LLMError("provider down")
 
 
+class ConnectionFailProvider(BaseLLMProvider):
+    def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
+        raise LLMConnectionError("connection refused")
+
+
 def _make_supervisor(provider: BaseLLMProvider | None = None) -> Supervisor:
     p = provider or FakeProvider()
     return Supervisor(
         research_agent=ResearchAgent(p),
         analyst_agent=AnalystAgent(p),
         writer_agent=WriterAgent(p),
+        provider=p,
     )
 
 
@@ -119,3 +126,35 @@ def test_handle_format_discord_has_sections():
     assert "**비교**" in text
     assert "**다음 행동**" in text
     assert "**출처**" in text
+
+
+def test_handle_records_token_usage():
+    supervisor = _make_supervisor()
+    req = ResearchRequest(query="토큰 테스트")
+    with patch("agents.research_agent.search", return_value=[]):
+        resp = asyncio.run(supervisor.handle(req))
+
+    for r in resp.agent_results:
+        assert r.prompt_tokens > 0
+        assert r.completion_tokens > 0
+
+
+def test_handle_connection_error_is_graceful():
+    supervisor = _make_supervisor(ConnectionFailProvider())
+    req = ResearchRequest(query="테스트")
+    with patch("agents.research_agent.search", return_value=[]):
+        resp = asyncio.run(supervisor.handle(req))
+
+    assert all(not r.success for r in resp.agent_results)
+    assert any("LLMConnectionError" in (r.error or "") for r in resp.agent_results)
+
+
+def test_handle_failed_agents_have_zero_tokens():
+    supervisor = _make_supervisor(FailingProvider())
+    req = ResearchRequest(query="테스트")
+    with patch("agents.research_agent.search", return_value=[]):
+        resp = asyncio.run(supervisor.handle(req))
+
+    for r in resp.agent_results:
+        assert r.prompt_tokens == 0
+        assert r.completion_tokens == 0
