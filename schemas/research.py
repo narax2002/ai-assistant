@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 class ResearchRequest:
     query: str
     request_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    followup_from: str | None = None
 
 
 @dataclass(frozen=True)

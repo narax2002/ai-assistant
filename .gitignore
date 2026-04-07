@@ -6,5 +6,6 @@ __pycache__/
 !.env.example
 data/credentials.json
 data/token.json
+data/research_history.db
 /.run/
 /.ruff_cache/

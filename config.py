@@ -19,6 +19,9 @@ class Settings:
     google_calendar_credentials_path: str
     google_calendar_token_path: str
     google_calendar_id: str
+    history_db_path: str
+    max_history_records: int
+    max_history_size_mb: int
     discord_dev_guild_id: str
 
 
@@ -49,6 +52,9 @@ def load_settings() -> Settings:
             "data/token.json",
         ),
         google_calendar_id=os.getenv("GOOGLE_CALENDAR_ID", "primary"),
+        history_db_path=os.getenv("HISTORY_DB_PATH", "data/research_history.db"),
+        max_history_records=_int_env("MAX_HISTORY_RECORDS", 200, minimum=1),
+        max_history_size_mb=_int_env("MAX_HISTORY_SIZE_MB", 50, minimum=1),
         discord_dev_guild_id=os.getenv("DISCORD_DEV_GUILD_ID", ""),
     )
 

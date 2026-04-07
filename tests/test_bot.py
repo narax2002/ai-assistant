@@ -27,6 +27,9 @@ def _settings(**overrides: object) -> Settings:
         "google_calendar_credentials_path": "data/credentials.json",
         "google_calendar_token_path": "data/token.json",
         "google_calendar_id": "primary",
+        "history_db_path": ":memory:",
+        "max_history_records": 200,
+        "max_history_size_mb": 50,
         "discord_dev_guild_id": "",
     }
     data.update(overrides)
