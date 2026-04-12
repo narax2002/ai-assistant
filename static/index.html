@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 어시스턴트</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>AI 어시스턴트</h1>
+  <button id="theme-toggle" title="테마 전환">🌙</button>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="chat">채팅</button>
+  <button class="tab-btn" data-tab="research">리서치</button>
+  <button class="tab-btn" data-tab="history">기록</button>
+</nav>
+
+<main>
+  <!-- Chat Tab -->
+  <section id="tab-chat" class="tab-section active">
+    <div id="chat-messages"></div>
+    <form class="chat-form" id="chat-form">
+      <select id="chat-provider"><option value="auto">auto</option></select>
+      <input type="text" id="chat-input" placeholder="메시지를 입력하세요" autocomplete="off">
+      <button type="submit" class="btn">전송</button>
+    </form>
+  </section>
+
+  <!-- Research Tab -->
+  <section id="tab-research" class="tab-section">
+    <form class="input-row" id="research-form" style="padding-top:16px">
+      <input type="text" id="research-input" placeholder="리서치 주제를 입력하세요" autocomplete="off">
+      <button type="submit" class="btn">검색</button>
+    </form>
+
+    <div class="loading-area" id="research-loading">
+      <div class="spinner"></div>
+      <span>리서치 진행 중... (30초 이상 소요될 수 있습니다)</span>
+    </div>
+
+    <div id="research-result">
+      <div class="stats" id="research-stats"></div>
+      <div class="card"><h3>핵심 요약</h3><div class="card-content" id="res-summary"></div></div>
+      <div class="card"><h3>비교</h3><div class="card-content" id="res-comparison"></div></div>
+      <div class="card"><h3>다음 행동</h3><div class="card-content" id="res-actions"></div></div>
+      <div class="card"><h3>출처</h3><div class="card-content" id="res-sources"></div></div>
+    </div>
+
+    <div id="followup-area">
+      <form class="input-row" id="followup-form">
+        <input type="text" id="followup-input" placeholder="후속 질문을 입력하세요" autocomplete="off">
+        <button type="submit" class="btn">질문</button>
+      </form>
+    </div>
+
+    <div id="research-error"></div>
+  </section>
+
+  <!-- History Tab -->
+  <section id="tab-history" class="tab-section">
+    <div class="input-row" style="padding-top:16px">
+      <input type="text" id="history-search" placeholder="검색..." autocomplete="off">
+      <button class="btn" id="history-search-btn">검색</button>
+    </div>
+
+    <div id="history-list"></div>
+
+    <div class="pagination" id="history-pagination"></div>
+
+    <div id="history-detail">
+      <button class="back-btn" id="history-back">&larr; 목록으로</button>
+      <div class="stats" id="detail-meta"></div>
+      <div class="card"><h3>핵심 요약</h3><div class="card-content" id="detail-summary"></div></div>
+      <div class="card"><h3>비교</h3><div class="card-content" id="detail-comparison"></div></div>
+      <div class="card"><h3>다음 행동</h3><div class="card-content" id="detail-actions"></div></div>
+      <div class="card"><h3>출처</h3><div class="card-content" id="detail-sources"></div></div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
