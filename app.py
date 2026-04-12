@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from config import load_settings
 from interfaces.discord_bot import create_research_bot
 from runtime_lock import single_instance_lock
+from services.shared import create_app_context
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +22,11 @@ def main() -> None:
 
     LOGGER.info("Starting research assistant")
 
-    client = create_research_bot(settings)
+    if not settings.discord_bot_token:
+        raise SystemExit("DISCORD_BOT_TOKEN is required for the Discord bot.")
+
+    ctx = create_app_context(settings)
+    client = create_research_bot(ctx)
 
     try:
         with single_instance_lock():

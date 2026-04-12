@@ -1,44 +1,33 @@
 """Discord slash-command interface for the research assistant."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import discord
 from discord import app_commands
 
-from agents.analyst_agent import AnalystAgent
-from agents.research_agent import ResearchAgent
-from agents.writer_agent import WriterAgent
 from config import Settings
 from llm.base import LLMError
-from orchestrator.supervisor import Supervisor
 from schemas.research import ResearchRequest
-from services.router import get_llm_provider
-from storage.history import HistoryStore
 from utils.text import chunk_text
+
+if TYPE_CHECKING:
+    from services.shared import AppContext
 
 LOGGER = logging.getLogger(__name__)
 
 
-def create_research_bot(settings: Settings) -> discord.Client:
+def create_research_bot(ctx: AppContext) -> discord.Client:
+    settings = ctx.settings
+    supervisor = ctx.supervisor
+    store = ctx.store
+
     intents = discord.Intents.default()
     client = discord.Client(intents=intents)
     tree = app_commands.CommandTree(client)
 
-    provider = get_llm_provider(settings)
-
-    timeout = settings.ollama_timeout_seconds
-    supervisor = Supervisor(
-        research_agent=ResearchAgent(provider, timeout_seconds=timeout),
-        analyst_agent=AnalystAgent(provider, timeout_seconds=timeout),
-        writer_agent=WriterAgent(provider, timeout_seconds=timeout),
-        provider=provider,
-    )
-
-    store = HistoryStore(
-        settings.history_db_path,
-        max_records=settings.max_history_records,
-        max_size_mb=settings.max_history_size_mb,
-    )
     dev_guild = _dev_guild(settings)
 
     @client.event

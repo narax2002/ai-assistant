@@ -23,12 +23,27 @@ class Settings:
     max_history_records: int
     max_history_size_mb: int
     discord_dev_guild_id: str
+    # OpenAI API provider
+    openai_api_key: str
+    openai_model: str
+    openai_timeout_seconds: int
+    # Claude API provider
+    claude_api_key: str
+    claude_model: str
+    claude_timeout_seconds: int
+    # Claude CLI provider
+    claude_cli_enabled: bool
+    claude_cli_path: str
+    claude_cli_timeout_seconds: int
+    # Codex CLI provider
+    codex_cli_enabled: bool
+    codex_cli_path: str
+    codex_cli_timeout_seconds: int
 
 
 def load_settings() -> Settings:
-    token = _required_env("DISCORD_BOT_TOKEN")
     return Settings(
-        discord_bot_token=token,
+        discord_bot_token=os.getenv("DISCORD_BOT_TOKEN", ""),
         command_prefix=os.getenv("COMMAND_PREFIX", "!"),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         llm_provider=os.getenv("LLM_PROVIDER", "ollama").lower(),
@@ -56,14 +71,23 @@ def load_settings() -> Settings:
         max_history_records=_int_env("MAX_HISTORY_RECORDS", 200, minimum=1),
         max_history_size_mb=_int_env("MAX_HISTORY_SIZE_MB", 50, minimum=1),
         discord_dev_guild_id=os.getenv("DISCORD_DEV_GUILD_ID", ""),
+        # OpenAI API provider
+        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        openai_timeout_seconds=_int_env("OPENAI_TIMEOUT_SECONDS", 60, minimum=1),
+        # Claude API provider
+        claude_api_key=os.getenv("CLAUDE_API_KEY", ""),
+        claude_model=os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
+        claude_timeout_seconds=_int_env("CLAUDE_TIMEOUT_SECONDS", 60, minimum=1),
+        # Claude CLI provider
+        claude_cli_enabled=_bool_env("CLAUDE_CLI_ENABLED", False),
+        claude_cli_path=os.getenv("CLAUDE_CLI_PATH", "claude"),
+        claude_cli_timeout_seconds=_int_env("CLAUDE_CLI_TIMEOUT_SECONDS", 120, minimum=1),
+        # Codex CLI provider
+        codex_cli_enabled=_bool_env("CODEX_CLI_ENABLED", False),
+        codex_cli_path=os.getenv("CODEX_CLI_PATH", "codex"),
+        codex_cli_timeout_seconds=_int_env("CODEX_CLI_TIMEOUT_SECONDS", 120, minimum=1),
     )
-
-
-def _required_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"{name} is required")
-    return value
 
 
 def _bool_env(name: str, default: bool) -> bool:

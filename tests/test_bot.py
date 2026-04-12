@@ -1,5 +1,7 @@
 import asyncio
 
+from conftest import make_settings
+
 from bot.discord_bot import (
     _build_today_summary_prompt,
     _calendar_disabled_message,
@@ -7,33 +9,6 @@ from bot.discord_bot import (
     _command_usage,
     create_bot,
 )
-from config import Settings
-
-
-def _settings(**overrides: object) -> Settings:
-    data = {
-        "discord_bot_token": "token",
-        "command_prefix": "!",
-        "log_level": "INFO",
-        "llm_provider": "ollama",
-        "ollama_base_url": "http://localhost:11434/v1",
-        "ollama_api_key": "ollama",
-        "ollama_model": "gemma3:4b",
-        "ollama_timeout_seconds": 60,
-        "system_prompt": "test prompt",
-        "enable_proofread": True,
-        "enable_google_calendar": False,
-        "max_reply_chars": 1900,
-        "google_calendar_credentials_path": "data/credentials.json",
-        "google_calendar_token_path": "data/token.json",
-        "google_calendar_id": "primary",
-        "history_db_path": ":memory:",
-        "max_history_records": 200,
-        "max_history_size_mb": 50,
-        "discord_dev_guild_id": "",
-    }
-    data.update(overrides)
-    return Settings(**data)
 
 
 class FakeContext:
@@ -53,7 +28,7 @@ def test_chunk_text_prefers_newline_boundaries() -> None:
 
 
 def test_command_usage_includes_prefix_and_signature() -> None:
-    bot = create_bot(_settings())
+    bot = create_bot(make_settings())
     command = bot.get_command("ask")
 
     usage = _command_usage("!", command)
@@ -71,7 +46,7 @@ def test_build_today_summary_prompt_contains_events() -> None:
 
 
 def test_schedule_command_returns_disabled_message_when_calendar_is_off() -> None:
-    bot = create_bot(_settings(enable_google_calendar=False))
+    bot = create_bot(make_settings(enable_google_calendar=False))
     command = bot.get_command("schedule")
     ctx = FakeContext()
 
@@ -81,7 +56,7 @@ def test_schedule_command_returns_disabled_message_when_calendar_is_off() -> Non
 
 
 def test_today_command_returns_disabled_message_when_calendar_is_off() -> None:
-    bot = create_bot(_settings(enable_google_calendar=False))
+    bot = create_bot(make_settings(enable_google_calendar=False))
     command = bot.get_command("today")
     ctx = FakeContext()
 

@@ -2,6 +2,7 @@ import discord
 
 from config import load_settings
 from interfaces.discord_bot import create_research_bot
+from services.shared import create_app_context
 from utils.text import chunk_text
 
 
@@ -25,5 +26,6 @@ def test_create_research_bot_returns_client(monkeypatch):
     monkeypatch.setenv("DISCORD_BOT_TOKEN", "fake-token")
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
     settings = load_settings()
-    client = create_research_bot(settings)
+    ctx = create_app_context(settings)
+    client = create_research_bot(ctx)
     assert isinstance(client, discord.Client)

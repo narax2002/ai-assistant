@@ -5,6 +5,7 @@ from config import load_settings
 
 def _reset_optional_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in [
+        "DISCORD_BOT_TOKEN",
         "COMMAND_PREFIX",
         "LOG_LEVEL",
         "LLM_PROVIDER",
@@ -19,18 +20,29 @@ def _reset_optional_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GOOGLE_CALENDAR_CREDENTIALS_PATH",
         "GOOGLE_CALENDAR_TOKEN_PATH",
         "GOOGLE_CALENDAR_ID",
+        "OPENAI_API_KEY",
+        "OPENAI_MODEL",
+        "OPENAI_TIMEOUT_SECONDS",
+        "CLAUDE_API_KEY",
+        "CLAUDE_MODEL",
+        "CLAUDE_TIMEOUT_SECONDS",
+        "CLAUDE_CLI_ENABLED",
+        "CLAUDE_CLI_PATH",
+        "CLAUDE_CLI_TIMEOUT_SECONDS",
+        "CODEX_CLI_ENABLED",
+        "CODEX_CLI_PATH",
+        "CODEX_CLI_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
 
 
-def _set_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("DISCORD_BOT_TOKEN", raising=False)
+def _set_env(monkeypatch: pytest.MonkeyPatch) -> None:
     _reset_optional_env(monkeypatch)
     monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
 
 
 def test_load_settings_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_required_env(monkeypatch)
+    _set_env(monkeypatch)
 
     settings = load_settings()
 
@@ -42,7 +54,7 @@ def test_load_settings_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_load_settings_reads_calendar_and_timeout_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_required_env(monkeypatch)
+    _set_env(monkeypatch)
     monkeypatch.setenv("ENABLE_GOOGLE_CALENDAR", "true")
     monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "15")
 
@@ -53,7 +65,7 @@ def test_load_settings_reads_calendar_and_timeout_flags(monkeypatch: pytest.Monk
 
 
 def test_load_settings_rejects_invalid_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_required_env(monkeypatch)
+    _set_env(monkeypatch)
     monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "0")
 
     with pytest.raises(RuntimeError, match="OLLAMA_TIMEOUT_SECONDS must be at least 1"):

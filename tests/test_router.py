@@ -1,42 +1,97 @@
 import pytest
+from conftest import make_settings
 
-from config import Settings
+from llm.claude_api_provider import ClaudeAPIProvider
+from llm.claude_cli_provider import ClaudeCLIProvider
+from llm.codex_cli_provider import CodexCLIProvider
+from llm.fallback_provider import FallbackProvider
 from llm.ollama_provider import OllamaProvider
-from services.router import get_llm_provider
+from llm.openai_provider import OpenAIProvider
+from services.router import get_llm_provider, get_provider_by_name, list_available_providers
 
 
-def _settings(**overrides: object) -> Settings:
-    data = {
-        "discord_bot_token": "token",
-        "command_prefix": "!",
-        "log_level": "INFO",
-        "llm_provider": "ollama",
-        "ollama_base_url": "http://localhost:11434/v1",
-        "ollama_api_key": "ollama",
-        "ollama_model": "gemma3:4b",
-        "ollama_timeout_seconds": 60,
-        "system_prompt": "test prompt",
-        "enable_proofread": True,
-        "enable_google_calendar": False,
-        "max_reply_chars": 1900,
-        "google_calendar_credentials_path": "data/credentials.json",
-        "google_calendar_token_path": "data/token.json",
-        "google_calendar_id": "primary",
-        "history_db_path": ":memory:",
-        "max_history_records": 200,
-        "max_history_size_mb": 50,
-        "discord_dev_guild_id": "",
-    }
-    data.update(overrides)
-    return Settings(**data)
+class TestGetLLMProvider:
+    def test_ollama_only_returns_single_provider(self):
+        provider = get_llm_provider(make_settings())
+        assert isinstance(provider, OllamaProvider)
+
+    def test_with_openai_key_returns_fallback(self):
+        provider = get_llm_provider(make_settings(openai_api_key="sk-test"))
+        assert isinstance(provider, FallbackProvider)
+        assert len(provider._providers) == 2
+        assert isinstance(provider._providers[0], OllamaProvider)
+        assert isinstance(provider._providers[1], OpenAIProvider)
+
+    def test_with_claude_key_returns_fallback(self):
+        provider = get_llm_provider(make_settings(claude_api_key="sk-ant-test"))
+        assert isinstance(provider, FallbackProvider)
+        assert isinstance(provider._providers[1], ClaudeAPIProvider)
+
+    def test_with_cli_enabled_returns_fallback(self):
+        provider = get_llm_provider(make_settings(claude_cli_enabled=True))
+        assert isinstance(provider, FallbackProvider)
+        assert isinstance(provider._providers[1], ClaudeCLIProvider)
+
+    def test_full_chain_order(self):
+        provider = get_llm_provider(
+            make_settings(
+                claude_cli_enabled=True,
+                codex_cli_enabled=True,
+                openai_api_key="sk-test",
+                claude_api_key="sk-ant-test",
+            )
+        )
+        assert isinstance(provider, FallbackProvider)
+        types = [type(p) for p in provider._providers]
+        assert types == [
+            OllamaProvider,
+            ClaudeCLIProvider,
+            CodexCLIProvider,
+            OpenAIProvider,
+            ClaudeAPIProvider,
+        ]
 
 
-def test_get_llm_provider_returns_ollama_provider() -> None:
-    provider = get_llm_provider(_settings())
+class TestGetProviderByName:
+    def test_ollama(self):
+        p = get_provider_by_name("ollama", make_settings())
+        assert isinstance(p, OllamaProvider)
 
-    assert isinstance(provider, OllamaProvider)
+    def test_openai_api_with_key(self):
+        p = get_provider_by_name("openai-api", make_settings(openai_api_key="sk-test"))
+        assert isinstance(p, OpenAIProvider)
+
+    def test_openai_api_without_key_raises(self):
+        with pytest.raises(RuntimeError, match="API key"):
+            get_provider_by_name("openai-api", make_settings())
+
+    def test_claude_api_with_key(self):
+        p = get_provider_by_name("claude-api", make_settings(claude_api_key="sk-ant-test"))
+        assert isinstance(p, ClaudeAPIProvider)
+
+    def test_claude_cli_disabled_raises(self):
+        with pytest.raises(RuntimeError, match="비활성화"):
+            get_provider_by_name("claude-cli", make_settings())
+
+    def test_unknown_name_raises(self):
+        with pytest.raises(RuntimeError, match="알 수 없는"):
+            get_provider_by_name("groq", make_settings())
 
 
-def test_get_llm_provider_rejects_unsupported_provider() -> None:
-    with pytest.raises(RuntimeError, match="Unsupported LLM_PROVIDER"):
-        get_llm_provider(_settings(llm_provider="groq"))
+class TestListAvailableProviders:
+    def test_ollama_only(self):
+        result = list_available_providers(make_settings())
+        assert len(result) == 1
+        assert result[0]["name"] == "ollama"
+
+    def test_all_providers(self):
+        result = list_available_providers(
+            make_settings(
+                claude_cli_enabled=True,
+                codex_cli_enabled=True,
+                openai_api_key="sk-test",
+                claude_api_key="sk-ant-test",
+            )
+        )
+        names = [p["name"] for p in result]
+        assert names == ["ollama", "claude-cli", "codex-cli", "openai-api", "claude-api"]

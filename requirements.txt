@@ -1,4 +1,7 @@
+anthropic>=0.40,<1
 discord.py>=2.4,<3
 duckduckgo-search>=7.0,<8
+fastapi>=0.110,<1
 openai>=1.0,<2
 python-dotenv>=1.0,<2
+uvicorn[standard]>=0.29,<1
