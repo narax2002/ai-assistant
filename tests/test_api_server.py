@@ -44,6 +44,8 @@ class TestChatEndpoint:
         provider = MagicMock()
         provider.chat.return_value = "답변"
         provider.last_usage = MagicMock(prompt_tokens=10, completion_tokens=5)
+        provider.last_provider_name = "ollama"
+        provider.name = "fallback"
         ctx.supervisor._provider = provider
 
         client = TestClient(create_api_app(ctx))
@@ -53,6 +55,8 @@ class TestChatEndpoint:
         data = resp.json()
         assert data["response"] == "답변"
         assert data["prompt_tokens"] == 10
+        assert data["provider_requested"] == "auto"
+        assert data["provider_used"] == "ollama"
 
     def test_chat_unknown_provider_returns_400(self):
         ctx = _mock_ctx()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ from discord import app_commands
 from config import Settings
 from llm.base import LLMError
 from schemas.research import ResearchRequest
+from services.router import get_provider_by_name
 from utils.text import chunk_text
 
 if TYPE_CHECKING:
@@ -46,6 +48,52 @@ def create_research_bot(ctx: AppContext) -> discord.Client:
     @tree.command(name="ping", description="봇 연결 상태를 확인합니다")
     async def ping(interaction: discord.Interaction) -> None:
         await interaction.response.send_message("pong")
+
+    @tree.command(name="chat", description="단일 메시지 채팅 (프로바이더 선택 가능)")
+    @app_commands.describe(
+        message="메시지",
+        provider="사용할 프로바이더 (기본: auto)",
+    )
+    @app_commands.choices(
+        provider=[
+            app_commands.Choice(name="auto (fallback 체인)", value="auto"),
+            app_commands.Choice(name="ollama", value="ollama"),
+            app_commands.Choice(name="claude-cli", value="claude-cli"),
+            app_commands.Choice(name="codex-cli", value="codex-cli"),
+        ]
+    )
+    async def chat(
+        interaction: discord.Interaction,
+        message: str,
+        provider: app_commands.Choice[str] | None = None,
+    ) -> None:
+        await interaction.response.defer()
+
+        provider_name = provider.value if provider else "auto"
+        try:
+            if provider_name == "auto":
+                llm = supervisor._provider
+            else:
+                llm = get_provider_by_name(provider_name, settings)
+        except RuntimeError as exc:
+            await interaction.followup.send(f"오류: {exc}")
+            return
+
+        try:
+            result = await asyncio.to_thread(llm.chat, message)
+        except LLMError as exc:
+            await interaction.followup.send(f"오류: {exc}")
+            return
+        except Exception:
+            LOGGER.exception("Unexpected error in chat handler")
+            await interaction.followup.send("채팅 처리 중 오류가 발생했습니다.")
+            return
+
+        used = getattr(llm, "last_provider_name", llm.name)
+        echo = f"> `/chat` message: **{message}** | provider: **{provider_name}**"
+        text = f"{echo}\n\n{result}\n\n_— {used}_"
+        for chunk in chunk_text(text, settings.max_reply_chars):
+            await interaction.followup.send(chunk)
 
     @tree.command(name="research", description="리서치 주제를 입력하면 분석 결과를 제공합니다")
     @app_commands.describe(query="리서치할 주제")

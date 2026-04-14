@@ -8,6 +8,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class CodexCLIProvider(BaseLLMProvider):
+    name = "codex-cli"
+
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self._cli_path = settings.codex_cli_path
@@ -20,10 +22,16 @@ class CodexCLIProvider(BaseLLMProvider):
         else:
             full_prompt = user_message
 
-        cmd = [self._cli_path, "-q", full_prompt]
+        cmd = [self._cli_path, "exec", "--skip-git-repo-check", full_prompt]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=self._timeout)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                stdin=subprocess.DEVNULL,
+            )
         except subprocess.TimeoutExpired as exc:
             LOGGER.warning("Codex CLI timed out after %ss", self._timeout)
             raise LLMTimeoutError("Codex CLI 응답이 제한 시간을 넘겼습니다.") from exc

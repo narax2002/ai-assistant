@@ -9,6 +9,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ClaudeAPIProvider(BaseLLMProvider):
+    name = "claude-api"
+
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self.client = anthropic.Anthropic(api_key=settings.claude_api_key)

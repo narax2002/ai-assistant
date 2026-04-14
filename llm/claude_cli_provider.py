@@ -8,6 +8,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ClaudeCLIProvider(BaseLLMProvider):
+    name = "claude-cli"
+
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self._cli_path = settings.claude_cli_path

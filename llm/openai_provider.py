@@ -9,6 +9,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class OpenAIProvider(BaseLLMProvider):
+    name = "openai-api"
+
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self.client = OpenAI(api_key=settings.openai_api_key)

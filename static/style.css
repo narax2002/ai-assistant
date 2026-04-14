@@ -214,6 +214,12 @@ select {
   border-bottom-left-radius: 4px;
 }
 
+.msg-meta {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
 .chat-form {
   display: flex;
   gap: 8px;

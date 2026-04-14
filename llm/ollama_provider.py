@@ -14,6 +14,8 @@ _PROOFREAD_PROMPT = (
 
 
 class OllamaProvider(BaseLLMProvider):
+    name = "ollama"
+
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self.client = OpenAI(

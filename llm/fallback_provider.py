@@ -8,12 +8,15 @@ LOGGER = logging.getLogger(__name__)
 class FallbackProvider(BaseLLMProvider):
     """Tries each provider in order, falling back on transient errors only."""
 
+    name = "fallback"
+
     def __init__(self, providers: list[BaseLLMProvider]) -> None:
         super().__init__()
         if not providers:
             raise ValueError("At least one provider is required")
         self._providers = providers
         self.last_provider_index: int = 0
+        self.last_provider_name: str = providers[0].name
 
     def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
         last_error: LLMError | None = None
@@ -23,8 +26,9 @@ class FallbackProvider(BaseLLMProvider):
                 result = provider.chat(user_message, system_prompt=system_prompt)
                 self.last_usage = provider.last_usage
                 self.last_provider_index = i
+                self.last_provider_name = provider.name
                 if i > 0:
-                    LOGGER.info("Fallback succeeded on provider #%d", i)
+                    LOGGER.info("Fallback succeeded on provider #%d (%s)", i, provider.name)
                 return result
             except LLMError as exc:
                 last_error = exc

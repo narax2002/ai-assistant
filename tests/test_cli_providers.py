@@ -87,8 +87,9 @@ class TestCodexCLIProvider:
         provider.chat("질문", system_prompt="시스템")
 
         cmd = mock_run.call_args[0][0]
-        assert cmd[1] == "-q"
-        assert cmd[2] == "시스템\n\n질문"
+        assert cmd[1] == "exec"
+        assert cmd[2] == "--skip-git-repo-check"
+        assert cmd[3] == "시스템\n\n질문"
 
     @patch("llm.codex_cli_provider.subprocess.run")
     def test_timeout_raises_llm_timeout(self, mock_run):

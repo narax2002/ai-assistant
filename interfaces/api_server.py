@@ -47,9 +47,11 @@ def create_api_app(ctx: AppContext) -> FastAPI:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         usage = provider.last_usage
+        provider_used = getattr(provider, "last_provider_name", provider.name)
         return ChatResponse(
             response=result,
-            provider_used=req.provider,
+            provider_requested=req.provider,
+            provider_used=provider_used,
             prompt_tokens=usage.prompt_tokens,
             completion_tokens=usage.completion_tokens,
         )

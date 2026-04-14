@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+    provider_requested: str
     provider_used: str
     prompt_tokens: int = 0
     completion_tokens: int = 0

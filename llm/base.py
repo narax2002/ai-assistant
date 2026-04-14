@@ -31,6 +31,8 @@ class ChatUsage:
 
 
 class BaseLLMProvider(ABC):
+    name: str = "base"
+
     def __init__(self) -> None:
         self.last_usage: ChatUsage = ChatUsage()
 

@@ -76,6 +76,7 @@ function switchTab(name) {
 async function loadProviders() {
   try {
     const providers = await apiGet("/api/providers");
+    console.log("loadProviders:", providers);
     const sel = document.getElementById("chat-provider");
     providers.forEach((p) => {
       const opt = document.createElement("option");
@@ -83,8 +84,8 @@ async function loadProviders() {
       opt.textContent = `${p.name} (${p.model})`;
       sel.appendChild(opt);
     });
-  } catch (_) {
-    /* silent — auto is always available */
+  } catch (err) {
+    console.error("loadProviders failed:", err);
   }
 }
 
@@ -102,11 +103,11 @@ function initChat() {
     const provider = document.getElementById("chat-provider").value;
     input.value = "";
     appendMessage("user", message);
-    appendMessage("assistant", "...");
+    appendMessage("assistant", "생각 중...");
 
     try {
       const data = await apiPost("/api/chat", { message, provider });
-      replaceLastMessage(data.response);
+      replaceLastMessage(data.response, data.provider_used);
     } catch (err) {
       replaceLastMessage(`오류: ${err.message}`);
     }
@@ -122,10 +123,18 @@ function appendMessage(role, text) {
   container.scrollTop = container.scrollHeight;
 }
 
-function replaceLastMessage(text) {
+function replaceLastMessage(text, providerUsed) {
   const container = document.getElementById("chat-messages");
   const last = container.lastElementChild;
-  if (last) last.textContent = text;
+  if (last) {
+    last.textContent = text;
+    if (providerUsed) {
+      const tag = document.createElement("div");
+      tag.className = "msg-meta";
+      tag.textContent = `— ${providerUsed}`;
+      last.appendChild(tag);
+    }
+  }
   container.scrollTop = container.scrollHeight;
 }
 
