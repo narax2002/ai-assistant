@@ -14,7 +14,13 @@ def _mock_ctx() -> AppContext:
     settings = make_settings()
     supervisor = MagicMock()
     store = MagicMock()
-    return AppContext(settings=settings, supervisor=supervisor, store=store)
+    conversations = MagicMock()
+    return AppContext(
+        settings=settings,
+        supervisor=supervisor,
+        store=store,
+        conversations=conversations,
+    )
 
 
 def _mock_response(request_id="abc123") -> ResearchResponse:
@@ -89,6 +95,96 @@ class TestFollowupEndpoint:
         client = TestClient(create_api_app(ctx))
         resp = client.post("/api/followup", json={"question": "후속"})
 
+        assert resp.status_code == 404
+
+
+class TestConversationsEndpoints:
+    def _ctx_with_real_store(self):
+        from storage.conversations import ConversationStore
+
+        settings = make_settings()
+        supervisor = MagicMock()
+        provider = MagicMock()
+        provider.name = "fallback"
+        provider.last_provider_name = "ollama"
+        provider.chat_with_history.return_value = "답변"
+        supervisor._provider = provider
+
+        return AppContext(
+            settings=settings,
+            supervisor=supervisor,
+            store=MagicMock(),
+            conversations=ConversationStore(":memory:"),
+        )
+
+    def test_create_and_get(self):
+        ctx = self._ctx_with_real_store()
+        client = TestClient(create_api_app(ctx))
+
+        resp = client.post("/api/conversations", json={"platform": "web"})
+        assert resp.status_code == 200
+        created = resp.json()
+        assert created["platform"] == "web"
+        assert created["title"] is None
+
+        resp = client.get(f"/api/conversations/{created['id']}")
+        assert resp.status_code == 200
+        assert resp.json()["messages"] == []
+
+    def test_list_filters_by_platform(self):
+        ctx = self._ctx_with_real_store()
+        client = TestClient(create_api_app(ctx))
+        client.post("/api/conversations", json={"platform": "web"})
+        client.post("/api/conversations", json={"platform": "discord"})
+
+        resp = client.get("/api/conversations", params={"platform": "web"})
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
+
+    def test_rename(self):
+        ctx = self._ctx_with_real_store()
+        client = TestClient(create_api_app(ctx))
+        cid = client.post("/api/conversations", json={"platform": "web"}).json()["id"]
+
+        resp = client.patch(f"/api/conversations/{cid}", json={"title": "새 제목"})
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "새 제목"
+        assert resp.json()["title_locked"] is True
+
+    def test_delete(self):
+        ctx = self._ctx_with_real_store()
+        client = TestClient(create_api_app(ctx))
+        cid = client.post("/api/conversations", json={"platform": "web"}).json()["id"]
+
+        assert client.delete(f"/api/conversations/{cid}").status_code == 200
+        assert client.get(f"/api/conversations/{cid}").status_code == 404
+
+    def test_chat_appends_and_returns_reply(self):
+        ctx = self._ctx_with_real_store()
+        client = TestClient(create_api_app(ctx))
+        cid = client.post("/api/conversations", json={"platform": "web"}).json()["id"]
+
+        resp = client.post(
+            f"/api/conversations/{cid}/chat",
+            json={"message": "안녕", "provider": "auto"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["response"] == "답변"
+        assert data["provider_used"] == "ollama"
+        assert data["provider_requested"] == "auto"
+
+        # history now has 2 messages
+        detail = client.get(f"/api/conversations/{cid}").json()
+        assert len(detail["messages"]) == 2
+        assert detail["messages"][0]["role"] == "user"
+        assert detail["messages"][1]["role"] == "assistant"
+
+    def test_chat_404_on_missing_conversation(self):
+        ctx = self._ctx_with_real_store()
+        client = TestClient(create_api_app(ctx))
+
+        resp = client.post("/api/conversations/999/chat", json={"message": "hi"})
         assert resp.status_code == 404
 
     def test_followup_with_history(self):

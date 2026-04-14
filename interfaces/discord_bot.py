@@ -12,6 +12,7 @@ from discord import app_commands
 from config import Settings
 from llm.base import LLMError
 from schemas.research import ResearchRequest
+from services.auto_title import maybe_generate_title
 from services.router import get_provider_by_name
 from utils.text import chunk_text
 
@@ -25,6 +26,7 @@ def create_research_bot(ctx: AppContext) -> discord.Client:
     settings = ctx.settings
     supervisor = ctx.supervisor
     store = ctx.store
+    conversations = ctx.conversations
 
     intents = discord.Intents.default()
     client = discord.Client(intents=intents)
@@ -94,6 +96,145 @@ def create_research_bot(ctx: AppContext) -> discord.Client:
         text = f"{echo}\n\n{result}\n\n_— {used}_"
         for chunk in chunk_text(text, settings.max_reply_chars):
             await interaction.followup.send(chunk)
+
+    conv_group = app_commands.Group(name="conv", description="스레드 기반 연속 대화")
+    tree.add_command(conv_group)
+
+    _PROVIDER_CHOICES = [
+        app_commands.Choice(name="auto (fallback 체인)", value="auto"),
+        app_commands.Choice(name="ollama", value="ollama"),
+        app_commands.Choice(name="claude-cli", value="claude-cli"),
+        app_commands.Choice(name="codex-cli", value="codex-cli"),
+    ]
+
+    @conv_group.command(name="start", description="새 대화 스레드를 엽니다")
+    @app_commands.describe(title="대화 제목 (선택)")
+    async def conv_start(interaction: discord.Interaction, title: str | None = None) -> None:
+        channel = interaction.channel
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.response.send_message(
+                "스레드는 일반 텍스트 채널에서만 만들 수 있습니다."
+            )
+            return
+
+        thread_name = title or f"chat-{interaction.user.display_name}"
+        try:
+            thread = await channel.create_thread(
+                name=thread_name[:100],
+                type=discord.ChannelType.public_thread,
+                auto_archive_duration=1440,
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "스레드 생성 권한이 없습니다. 봇 권한을 확인해주세요."
+            )
+            return
+
+        conv = conversations.create(
+            platform="discord",
+            session_id=str(thread.id),
+            title=title,
+        )
+        await thread.send(
+            f"새 대화를 시작했습니다 (#{conv.id}). "
+            "`/conv send` 로 이어가거나 `/conv rename` 으로 이름을 바꿀 수 있습니다."
+        )
+        await interaction.response.send_message(f"스레드를 만들었습니다: {thread.mention}")
+
+    @conv_group.command(name="send", description="현재 스레드의 대화에 메시지를 보냅니다")
+    @app_commands.describe(
+        message="메시지",
+        provider="사용할 프로바이더 (기본: auto)",
+    )
+    @app_commands.choices(provider=_PROVIDER_CHOICES)
+    async def conv_send(
+        interaction: discord.Interaction,
+        message: str,
+        provider: app_commands.Choice[str] | None = None,
+    ) -> None:
+        channel = interaction.channel
+        if not isinstance(channel, discord.Thread):
+            await interaction.response.send_message(
+                "`/conv send` 는 `/conv start` 로 만든 스레드 안에서 실행하세요."
+            )
+            return
+
+        conv = conversations.get_by_session(str(channel.id))
+        if conv is None:
+            await interaction.response.send_message(
+                "이 스레드에 연결된 대화가 없습니다. `/conv start` 로 다시 시작해주세요."
+            )
+            return
+
+        await interaction.response.defer()
+
+        provider_name = provider.value if provider else "auto"
+        try:
+            if provider_name == "auto":
+                llm = supervisor._provider
+            else:
+                llm = get_provider_by_name(provider_name, settings)
+        except RuntimeError as exc:
+            await interaction.followup.send(f"오류: {exc}")
+            return
+
+        prior = conversations.list_messages(conv.id, limit=settings.chat_history_turns * 2)
+        history = [{"role": m.role, "content": m.content} for m in prior]
+
+        conversations.append_message(conv.id, "user", message)
+
+        try:
+            result = await asyncio.to_thread(llm.chat_with_history, history, message)
+        except LLMError as exc:
+            await interaction.followup.send(f"오류: {exc}")
+            return
+        except Exception:
+            LOGGER.exception("Unexpected error in conv send")
+            await interaction.followup.send("대화 처리 중 오류가 발생했습니다.")
+            return
+
+        used = getattr(llm, "last_provider_name", llm.name)
+        conversations.append_message(conv.id, "assistant", result, provider_used=used)
+
+        asyncio.create_task(maybe_generate_title(conversations, supervisor._provider, conv.id))
+
+        echo = f"> **{interaction.user.display_name}**: {message}"
+        text = f"{echo}\n\n{result}\n\n_— {used}_"
+        for chunk in chunk_text(text, settings.max_reply_chars):
+            await interaction.followup.send(chunk)
+
+    @conv_group.command(name="list", description="최근 대화 목록을 보여줍니다")
+    async def conv_list(interaction: discord.Interaction) -> None:
+        rows = conversations.list_recent(limit=20, platform="discord")
+        if not rows:
+            await interaction.response.send_message("Discord 대화가 없습니다.")
+            return
+        lines = ["**최근 대화**\n"]
+        for c in rows:
+            title = c.title or "(제목 없음)"
+            lines.append(f"`#{c.id}` <#{c.session_id}> — {title}")
+        await interaction.response.send_message("\n".join(lines))
+
+    @conv_group.command(name="rename", description="현재 스레드 대화의 이름을 바꿉니다")
+    @app_commands.describe(title="새 제목")
+    async def conv_rename(interaction: discord.Interaction, title: str) -> None:
+        channel = interaction.channel
+        if not isinstance(channel, discord.Thread):
+            await interaction.response.send_message(
+                "`/conv rename` 은 대화 스레드 안에서 실행하세요."
+            )
+            return
+        conv = conversations.get_by_session(str(channel.id))
+        if conv is None:
+            await interaction.response.send_message("이 스레드에 연결된 대화가 없습니다.")
+            return
+
+        conversations.rename(conv.id, title, locked=True)
+        try:
+            await channel.edit(name=title[:100])
+        except discord.Forbidden:
+            pass
+        await interaction.response.send_message(f"이름을 **{title}** 로 변경했습니다.")
 
     @tree.command(name="research", description="리서치 주제를 입력하면 분석 결과를 제공합니다")
     @app_commands.describe(query="리서치할 주제")

@@ -39,3 +39,26 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
         """Return a response for the supplied user message."""
+
+    def chat_with_history(
+        self,
+        history: list[dict[str, str]],
+        user_message: str,
+        *,
+        system_prompt: str | None = None,
+    ) -> str:
+        """Default: stitch prior turns into a single prompt. Override for native APIs.
+
+        history: list of {"role": "user"|"assistant", "content": str} from oldest to newest.
+        """
+        if not history:
+            return self.chat(user_message, system_prompt=system_prompt)
+
+        lines: list[str] = []
+        for turn in history:
+            label = "User" if turn["role"] == "user" else "Assistant"
+            lines.append(f"{label}: {turn['content']}")
+        lines.append(f"User: {user_message}")
+        lines.append("Assistant:")
+        stitched = "\n\n".join(lines)
+        return self.chat(stitched, system_prompt=system_prompt)

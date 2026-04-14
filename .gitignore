@@ -7,5 +7,7 @@ __pycache__/
 data/credentials.json
 data/token.json
 data/research_history.db
+data/conversations.db
+.codex
 /.run/
 /.ruff_cache/

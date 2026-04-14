@@ -8,6 +8,7 @@ from agents.writer_agent import WriterAgent
 from config import Settings
 from orchestrator.supervisor import Supervisor
 from services.router import get_llm_provider
+from storage.conversations import ConversationStore
 from storage.history import HistoryStore
 
 
@@ -16,10 +17,11 @@ class AppContext:
     settings: Settings
     supervisor: Supervisor
     store: HistoryStore
+    conversations: ConversationStore
 
 
 def create_app_context(settings: Settings) -> AppContext:
-    """Wire up provider, agents, supervisor, and history store."""
+    """Wire up provider, agents, supervisor, and stores."""
     provider = get_llm_provider(settings)
     timeout = settings.ollama_timeout_seconds
 
@@ -35,5 +37,11 @@ def create_app_context(settings: Settings) -> AppContext:
         max_records=settings.max_history_records,
         max_size_mb=settings.max_history_size_mb,
     )
+    conversations = ConversationStore(settings.conversations_db_path)
 
-    return AppContext(settings=settings, supervisor=supervisor, store=store)
+    return AppContext(
+        settings=settings,
+        supervisor=supervisor,
+        store=store,
+        conversations=conversations,
+    )

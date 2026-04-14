@@ -11,12 +11,20 @@ from fastapi import FastAPI, HTTPException, Query
 from schemas.api import (
     ChatRequest,
     ChatResponse,
+    ConversationChatRequest,
+    ConversationChatResponse,
+    ConversationCreate,
+    ConversationDetail,
+    ConversationMessageOut,
+    ConversationOut,
+    ConversationRename,
     FollowupAPIRequest,
     ProviderStatus,
     ResearchAPIRequest,
     ResearchAPIResponse,
 )
 from schemas.research import ResearchRequest
+from services.auto_title import maybe_generate_title
 from services.router import get_provider_by_name, list_available_providers
 
 if TYPE_CHECKING:
@@ -179,5 +187,122 @@ def create_api_app(ctx: AppContext) -> FastAPI:
     @app.get("/api/providers", response_model=list[ProviderStatus])
     async def providers() -> list[ProviderStatus]:
         return [ProviderStatus(**p) for p in list_available_providers(ctx.settings)]
+
+    # --- Conversations ---
+
+    def _conv_to_out(c) -> ConversationOut:
+        return ConversationOut(
+            id=c.id,
+            session_id=c.session_id,
+            title=c.title,
+            title_locked=c.title_locked,
+            platform=c.platform,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+        )
+
+    @app.post("/api/conversations", response_model=ConversationOut)
+    async def create_conversation(req: ConversationCreate) -> ConversationOut:
+        c = ctx.conversations.create(
+            platform=req.platform,
+            session_id=req.session_id,
+            title=req.title,
+        )
+        return _conv_to_out(c)
+
+    @app.get("/api/conversations", response_model=list[ConversationOut])
+    async def list_conversations(
+        platform: str | None = None,
+        limit: int = Query(default=20, ge=1, le=200),
+    ) -> list[ConversationOut]:
+        rows = ctx.conversations.list_recent(limit=limit, platform=platform)
+        return [_conv_to_out(c) for c in rows]
+
+    @app.get("/api/conversations/{conversation_id}", response_model=ConversationDetail)
+    async def get_conversation(conversation_id: int) -> ConversationDetail:
+        c = ctx.conversations.get(conversation_id)
+        if c is None:
+            raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+        messages = ctx.conversations.list_messages(conversation_id)
+        return ConversationDetail(
+            **_conv_to_out(c).model_dump(),
+            messages=[
+                ConversationMessageOut(
+                    id=m.id,
+                    role=m.role,
+                    content=m.content,
+                    provider_used=m.provider_used,
+                    created_at=m.created_at,
+                )
+                for m in messages
+            ],
+        )
+
+    @app.patch("/api/conversations/{conversation_id}", response_model=ConversationOut)
+    async def rename_conversation(conversation_id: int, req: ConversationRename) -> ConversationOut:
+        if not ctx.conversations.rename(conversation_id, req.title, locked=True):
+            raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+        c = ctx.conversations.get(conversation_id)
+        return _conv_to_out(c)
+
+    @app.delete("/api/conversations/{conversation_id}")
+    async def delete_conversation(conversation_id: int) -> dict:
+        if not ctx.conversations.delete(conversation_id):
+            raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+        return {"deleted": conversation_id}
+
+    @app.post(
+        "/api/conversations/{conversation_id}/chat",
+        response_model=ConversationChatResponse,
+    )
+    async def chat_in_conversation(
+        conversation_id: int, req: ConversationChatRequest
+    ) -> ConversationChatResponse:
+        conv = ctx.conversations.get(conversation_id)
+        if conv is None:
+            raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+
+        if req.provider == "auto":
+            provider = ctx.supervisor._provider
+        else:
+            try:
+                provider = get_provider_by_name(req.provider, ctx.settings)
+            except RuntimeError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        prior = ctx.conversations.list_messages(
+            conversation_id, limit=ctx.settings.chat_history_turns * 2
+        )
+        history = [{"role": m.role, "content": m.content} for m in prior]
+
+        ctx.conversations.append_message(conversation_id, "user", req.message)
+
+        try:
+            result = await asyncio.to_thread(
+                provider.chat_with_history,
+                history,
+                req.message,
+                system_prompt=req.system_prompt,
+            )
+        except Exception as exc:
+            LOGGER.exception("Conversation chat error")
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        used = getattr(provider, "last_provider_name", provider.name)
+        stored = ctx.conversations.append_message(
+            conversation_id, "assistant", result, provider_used=used
+        )
+
+        asyncio.create_task(
+            maybe_generate_title(ctx.conversations, ctx.supervisor._provider, conversation_id)
+        )
+
+        return ConversationChatResponse(
+            response=result,
+            provider_requested=req.provider,
+            provider_used=used,
+            conversation_id=conversation_id,
+            message_id=stored.id,
+        )
 
     return app

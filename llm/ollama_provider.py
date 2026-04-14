@@ -50,6 +50,19 @@ class OllamaProvider(BaseLLMProvider):
         )
         return corrected or content
 
+    def chat_with_history(
+        self,
+        history: list[dict[str, str]],
+        user_message: str,
+        *,
+        system_prompt: str | None = None,
+    ) -> str:
+        prompt = system_prompt if system_prompt is not None else self.system_prompt
+        messages: list[dict[str, str]] = [{"role": "system", "content": prompt}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
+        return self._complete(messages, temperature=0.1)
+
     def _complete(self, messages: list[dict[str, str]], temperature: float) -> str:
         try:
             response = self.client.chat.completions.create(

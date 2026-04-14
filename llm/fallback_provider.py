@@ -19,11 +19,27 @@ class FallbackProvider(BaseLLMProvider):
         self.last_provider_name: str = providers[0].name
 
     def chat(self, user_message: str, *, system_prompt: str | None = None) -> str:
+        return self._try_chain(
+            lambda p: p.chat(user_message, system_prompt=system_prompt),
+        )
+
+    def chat_with_history(
+        self,
+        history: list[dict[str, str]],
+        user_message: str,
+        *,
+        system_prompt: str | None = None,
+    ) -> str:
+        return self._try_chain(
+            lambda p: p.chat_with_history(history, user_message, system_prompt=system_prompt),
+        )
+
+    def _try_chain(self, call) -> str:
         last_error: LLMError | None = None
 
         for i, provider in enumerate(self._providers):
             try:
-                result = provider.chat(user_message, system_prompt=system_prompt)
+                result = call(provider)
                 self.last_usage = provider.last_usage
                 self.last_provider_index = i
                 self.last_provider_name = provider.name

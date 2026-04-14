@@ -22,6 +22,16 @@
 <main>
   <!-- Chat Tab -->
   <section id="tab-chat" class="tab-section active">
+    <div class="chat-header">
+      <button id="conv-toggle" class="icon-btn" title="대화 목록">≡</button>
+      <input type="text" id="conv-title" class="conv-title" placeholder="(대화 없음)" readonly>
+      <button id="conv-new" class="icon-btn" title="새 대화">+</button>
+    </div>
+
+    <div id="conv-panel" class="conv-panel hidden">
+      <div id="conv-list"></div>
+    </div>
+
     <div id="chat-messages"></div>
     <form class="chat-form" id="chat-form">
       <select id="chat-provider"><option value="auto">auto</option></select>

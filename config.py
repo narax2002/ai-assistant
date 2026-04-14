@@ -22,6 +22,8 @@ class Settings:
     history_db_path: str
     max_history_records: int
     max_history_size_mb: int
+    conversations_db_path: str
+    chat_history_turns: int
     discord_dev_guild_id: str
     # OpenAI API provider
     openai_api_key: str
@@ -70,6 +72,8 @@ def load_settings() -> Settings:
         history_db_path=os.getenv("HISTORY_DB_PATH", "data/research_history.db"),
         max_history_records=_int_env("MAX_HISTORY_RECORDS", 200, minimum=1),
         max_history_size_mb=_int_env("MAX_HISTORY_SIZE_MB", 50, minimum=1),
+        conversations_db_path=os.getenv("CONVERSATIONS_DB_PATH", "data/conversations.db"),
+        chat_history_turns=_int_env("CHAT_HISTORY_TURNS", 10, minimum=1),
         discord_dev_guild_id=os.getenv("DISCORD_DEV_GUILD_ID", ""),
         # OpenAI API provider
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),

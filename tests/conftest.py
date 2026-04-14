@@ -28,6 +28,8 @@ _SETTINGS_DEFAULTS = {
     "history_db_path": ":memory:",
     "max_history_records": 200,
     "max_history_size_mb": 50,
+    "conversations_db_path": ":memory:",
+    "chat_history_turns": 10,
     "discord_dev_guild_id": "",
     # OpenAI API provider
     "openai_api_key": "",

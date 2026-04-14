@@ -26,6 +26,7 @@ async function apiGet(url) {
 
 let lastResearchId = null;
 let historyPage = 1;
+let currentConvId = null;
 
 /* === DOM Ready === */
 
@@ -33,9 +34,11 @@ document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initTabs();
   initChat();
+  initConversations();
   initResearch();
   initHistory();
   loadProviders();
+  refreshConversations();
 });
 
 /* === Theme === */
@@ -106,12 +109,139 @@ function initChat() {
     appendMessage("assistant", "생각 중...");
 
     try {
-      const data = await apiPost("/api/chat", { message, provider });
+      let data;
+      if (currentConvId) {
+        data = await apiPost(`/api/conversations/${currentConvId}/chat`, { message, provider });
+      } else {
+        data = await apiPost("/api/chat", { message, provider });
+      }
       replaceLastMessage(data.response, data.provider_used);
     } catch (err) {
       replaceLastMessage(`오류: ${err.message}`);
     }
   });
+}
+
+/* === Conversations === */
+
+function initConversations() {
+  document.getElementById("conv-new").addEventListener("click", createConversation);
+  document.getElementById("conv-toggle").addEventListener("click", () => {
+    document.getElementById("conv-panel").classList.toggle("hidden");
+  });
+
+  const titleEl = document.getElementById("conv-title");
+  titleEl.addEventListener("click", () => {
+    if (!currentConvId) return;
+    titleEl.removeAttribute("readonly");
+    titleEl.focus();
+    titleEl.select();
+  });
+  titleEl.addEventListener("blur", () => commitTitle());
+  titleEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); }
+    if (e.key === "Escape") { titleEl.value = titleEl.dataset.original || ""; titleEl.blur(); }
+  });
+}
+
+async function refreshConversations() {
+  try {
+    const list = await apiGet("/api/conversations?platform=web&limit=50");
+    renderConversations(list);
+  } catch (err) {
+    console.error("refreshConversations failed:", err);
+  }
+}
+
+function renderConversations(list) {
+  const listEl = document.getElementById("conv-list");
+  if (list.length === 0) {
+    listEl.innerHTML = '<div class="conv-empty">대화가 없습니다. + 버튼으로 시작하세요.</div>';
+    return;
+  }
+  listEl.innerHTML = list
+    .map(
+      (c) => `
+      <div class="conv-item ${c.id === currentConvId ? "active" : ""}" data-id="${c.id}">
+        <span class="conv-item-title">${escapeHtml(c.title || "(제목 없음)")}</span>
+        <button class="conv-del" data-id="${c.id}" title="삭제">✕</button>
+      </div>`
+    )
+    .join("");
+
+  listEl.querySelectorAll(".conv-item").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target.classList.contains("conv-del")) return;
+      selectConversation(Number(el.dataset.id));
+    });
+  });
+  listEl.querySelectorAll(".conv-del").forEach((el) => {
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.id);
+      if (!confirm("이 대화를 삭제할까요?")) return;
+      await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+      if (currentConvId === id) clearChat();
+      refreshConversations();
+    });
+  });
+}
+
+async function createConversation() {
+  const conv = await apiPost("/api/conversations", { platform: "web" });
+  await selectConversation(conv.id);
+  await refreshConversations();
+}
+
+async function selectConversation(id) {
+  currentConvId = id;
+  const detail = await apiGet(`/api/conversations/${id}`);
+  const titleEl = document.getElementById("conv-title");
+  titleEl.value = detail.title || "";
+  titleEl.dataset.original = titleEl.value;
+  titleEl.placeholder = "(제목 없음 — 클릭해서 입력)";
+
+  const container = document.getElementById("chat-messages");
+  container.innerHTML = "";
+  detail.messages.forEach((m) => {
+    appendMessage(m.role, m.content);
+    if (m.role === "assistant" && m.provider_used) {
+      const last = container.lastElementChild;
+      const tag = document.createElement("div");
+      tag.className = "msg-meta";
+      tag.textContent = `— ${m.provider_used}`;
+      last.appendChild(tag);
+    }
+  });
+  document.getElementById("conv-panel").classList.add("hidden");
+  refreshConversations();
+}
+
+function clearChat() {
+  currentConvId = null;
+  document.getElementById("chat-messages").innerHTML = "";
+  const titleEl = document.getElementById("conv-title");
+  titleEl.value = "";
+  titleEl.placeholder = "(대화 없음)";
+}
+
+async function commitTitle() {
+  const titleEl = document.getElementById("conv-title");
+  titleEl.setAttribute("readonly", "");
+  if (!currentConvId) return;
+  const newTitle = titleEl.value.trim();
+  if (!newTitle || newTitle === titleEl.dataset.original) return;
+  try {
+    await fetch(`/api/conversations/${currentConvId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newTitle }),
+    });
+    titleEl.dataset.original = newTitle;
+    refreshConversations();
+  } catch (err) {
+    console.error("rename failed:", err);
+  }
 }
 
 function appendMessage(role, text) {
