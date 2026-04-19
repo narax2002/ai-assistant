@@ -13,7 +13,7 @@ The current MVP direction is a Python application that uses local `Ollama` first
 - Environment-based configuration is centralized in `config.py`
 - Duplicate bot startup is blocked by a local process lock
 - Korean typo reduction is enabled with a proofreading pass after response generation
-- Planning and architecture notes live under `markdown/`
+- Planning and architecture notes live under `docs/`
 
 ## Project Layout
 
@@ -26,7 +26,7 @@ The current MVP direction is a Python application that uses local `Ollama` first
 - `llm/`: provider interface and Ollama implementation
 - `services/`: routing and service-layer code
 - `data/`: local Google OAuth files such as `credentials.json` and `token.json`
-- `markdown/`: roadmap and design documents
+- `docs/`: roadmap and design documents
 
 ## Local Run
 

@@ -92,4 +92,4 @@ Default model is `gemma3:4b` (Google, via Ollama). Chosen for stable Korean outp
 
 ### Roadmap
 
-Phase 0–7 complete. Phase 8–10 on hold. Full roadmap in `markdown/project-roadmap.md`, current status in `markdown/current-status.md`, Jarvis vision in `markdown/jarvis-roadmap.md`.
+Phase 0–7 complete. Phase 8–10 on hold. Full roadmap in `docs/project-roadmap.md`, current status in `docs/current-status.md`, Jarvis vision in `docs/jarvis-roadmap.md`.
